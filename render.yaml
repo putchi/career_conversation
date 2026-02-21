@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: career-conversation
+    env: docker
+    plan: free
+    envVars:
+      - key: ME_DIR
+        value: /etc/secrets
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: PUSHOVER_TOKEN
+        sync: false
+      - key: PUSHOVER_USER
+        sync: false
+      - key: VITE_LINKEDIN_URL
+        sync: false
+      - key: VITE_OWNER_NAME
+        sync: false
+      - key: VITE_OWNER_TITLE
+        sync: false

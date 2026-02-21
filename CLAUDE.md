@@ -1,0 +1,54 @@
+# career-conversation
+
+Career chatbot (digital twin) — FastAPI backend + TypeScript/Vite frontend, deployed on Render via Docker.
+
+## Commands
+
+```bash
+./start.sh              # Start both backend (port 8000) and frontend (port 5173)
+./start.sh --restart    # Stop and restart all
+./stop.sh               # Stop all
+./status.sh             # Status, health check, recent logs
+
+uv sync                 # Install/update Python deps
+uv run uvicorn backend.main:app --reload --port 8000  # Backend only (dev)
+
+cd frontend && npm run build    # Build frontend for production (outputs to frontend/dist)
+cd frontend && npm run preview  # Preview production build locally
+```
+
+## Architecture
+
+```
+backend/
+  main.py    # FastAPI app — /api/chat endpoint, mounts frontend/dist at /
+  chat.py    # Me class — loads me/ docs, builds system prompt, chat loop
+             # system_prompt() joins 6 sections: intro, scope, tool_instructions, context, behaviour, privacy
+  tools.py   # OpenAI tool definitions + Pushover notification helpers
+  models.py  # Pydantic request/response models
+frontend/
+  vite.config.ts  # Proxies /api → localhost:8000; loads .env from project root (envDir: '../')
+  src/
+    api.ts     # Chat API client
+    main.ts    # UI entry point
+me/          # Gitignored personal docs loaded at startup (see below)
+```
+
+## Environment Variables
+
+Required: `OPENAI_API_KEY`, `VITE_LINKEDIN_URL`, `VITE_OWNER_NAME`, `VITE_OWNER_TITLE`
+Optional: `PUSHOVER_TOKEN`, `PUSHOVER_USER` (mobile notifications via Pushover)
+Deployment: `ME_DIR=/etc/secrets` (Render Secret Files mount path)
+`PORT` — production port (default 8000 locally, 8080 in Docker/Render)
+
+## Gotchas
+
+- `me/` is gitignored — must be created manually. Backend fails on init without `profile.pdf` and `summary.txt`. `reference_letter.pdf` is optional.
+- File names in `me/` must match exactly — `profile.pdf`, `reference_letter.pdf`, `summary.txt`.
+- `ME_DIR` env var sets where the backend looks for these files; defaults to `me/`.
+- Frontend `dist/` is built by Docker (`npm run build` in Dockerfile). In local dev, Vite serves
+  the frontend on port 5173 directly — FastAPI's static mount at `/` is unused locally.
+- CORS is hardcoded to `http://localhost:5173` in `main.py` — not a production issue because FastAPI
+  serves both frontend and backend from the same origin; CORS only applies in local dev.
+- Pushover silently no-ops if tokens are missing — errors won't surface.
+- No test suite.

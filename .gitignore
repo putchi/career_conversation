@@ -1,0 +1,14 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+frontend/dist/
+*.egg-info/
+.DS_Store
+uv.lock
+.pids/
+logs/
+me/profile.pdf
+me/reference_letter.pdf
+me/summary.txt
