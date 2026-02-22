@@ -14,12 +14,12 @@ A conversational AI that represents Alex Rabinovich on his website, answering qu
 ```
 me/                          # Personal documents
 ├── profile.pdf              # CV / resume (committed, PII scrubbed)
-├── reference_letter.pdf     # Reference letter (gitignored, not used in production)
+├── reference_letter.pdf     # Reference letter (optional)
 └── summary.txt              # Text summary of background (committed)
 ```
 
 For local dev: me/profile.pdf and me/summary.txt are already in the repo.
-reference_letter.pdf is gitignored and not used — the app handles its absence gracefully.
+reference_letter.pdf is optional — the app handles its absence gracefully.
 For Render deployment: no Secret Files or ME_DIR needed. All required files are in the repo.
 
 ## Local Development
