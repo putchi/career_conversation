@@ -64,17 +64,31 @@ tail -f logs/frontend.log   # follow frontend output
 
 ## Deploy to Render
 
-**Order matters — configure everything before clicking Deploy**, or the first deploy will fail.
+Order matters — configure everything before clicking Deploy, or the first deploy will fail.
 
-1. Push the repo to GitHub
-2. Go to [Render dashboard](https://dashboard.render.com) → **New Web Service** → **Docker** → connect the GitHub repo — **don't click Deploy yet**
-3. Set the following in the **Environment Variables** tab:
-   - `OPENAI_API_KEY` — required
-   - `VITE_LINKEDIN_URL`, `VITE_OWNER_NAME`, `VITE_OWNER_TITLE` — required (frontend branding)
-   - `PUSHOVER_TOKEN`, `PUSHOVER_USER` — optional, for mobile notifications
-4. Click **Deploy**
+1. Push the repo to GitHub (me/profile.pdf and me/summary.txt are included)
 
-Render automatically detects `render.yaml` and sets up the service. The free plan spins the container down after inactivity — upgrade to a paid plan if you need always-on availability.
+2. Go to Render dashboard → New Web Service → Docker → connect the GitHub repo
+   - Name: career-conversation (or your preference)
+   - Language: Docker (auto-detected)
+   - Branch: master
+   - Region: choose the region closest to your users
+   - Instance Type: Free
+   - Don't click Deploy yet
+
+3. Set the following in the Environment Variables section:
+   - OPENAI_API_KEY — required
+   - VITE_LINKEDIN_URL, VITE_OWNER_NAME, VITE_OWNER_TITLE — required (frontend branding)
+   - PUSHOVER_TOKEN, PUSHOVER_USER — optional, for mobile notifications
+
+4. Set Health Check Path under Advanced:
+   /health
+
+5. Click Deploy Web Service
+
+Render automatically detects render.yaml and sets up the service.
+The free plan spins the container down after ~15 minutes of inactivity.
+Upgrade to a paid plan if you need always-on availability.
 
 ## Updating the System Prompt
 
