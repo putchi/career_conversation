@@ -9,6 +9,3 @@ frontend/dist/
 uv.lock
 .pids/
 logs/
-me/profile.pdf
-me/reference_letter.pdf
-me/summary.txt
