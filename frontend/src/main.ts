@@ -63,7 +63,7 @@ app.innerHTML = `
     <textarea
       id="chat-input"
       class="chat-input"
-      placeholder="Send a message to your digital twin..."
+      placeholder="Ask Alex anything..."
       rows="1"
     ></textarea>
     <button id="send-btn" class="send-btn" disabled title="Send">➤</button>
