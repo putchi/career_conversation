@@ -66,8 +66,8 @@ app.innerHTML = `
       placeholder="Send a message to your digital twin..."
       rows="1"
     ></textarea>
-    <button id="clear-btn" class="clear-btn" title="Clear conversation">↺</button>
     <button id="send-btn" class="send-btn" disabled title="Send">➤</button>
+    <button id="clear-btn" class="clear-btn" title="Clear conversation">↺</button>
   </div>
 
   <!-- Footer -->
