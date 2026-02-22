@@ -11,21 +11,16 @@ A conversational AI that represents Alex Rabinovich on his website, answering qu
 
 ## Local Setup — Required Files
 
-The following folder is gitignored and must be created manually:
-
 ```
-me/                          # Personal documents (gitignored, never committed)
-├── profile.pdf              # Your CV / resume
-├── reference_letter.pdf     # A reference letter (optional)
-└── summary.txt              # A short text summary of your background
+me/                          # Personal documents
+├── profile.pdf              # CV / resume (committed, PII scrubbed)
+├── reference_letter.pdf     # Reference letter (gitignored, not used in production)
+└── summary.txt              # Text summary of background (committed)
 ```
 
-`profile.pdf` and `summary.txt` are required — the backend will fail on init without them. `reference_letter.pdf` is optional; if absent it is silently ignored.
-
-**File names must match exactly** — the backend looks for these specific names.
-
-For local dev: create the `me/` folder in the project root and add the three files. The backend defaults to `me/` when `ME_DIR` is not set.
-For Render deployment: see *Deploy to Render* below.
+For local dev: me/profile.pdf and me/summary.txt are already in the repo.
+reference_letter.pdf is gitignored and not used — the app handles its absence gracefully.
+For Render deployment: no Secret Files or ME_DIR needed. All required files are in the repo.
 
 ## Local Development
 
@@ -71,18 +66,13 @@ tail -f logs/frontend.log   # follow frontend output
 
 **Order matters — configure everything before clicking Deploy**, or the first deploy will fail.
 
-1. Push the repo to GitHub (no `me/` files needed — those go to Render Secret Files in step 4)
+1. Push the repo to GitHub
 2. Go to [Render dashboard](https://dashboard.render.com) → **New Web Service** → **Docker** → connect the GitHub repo — **don't click Deploy yet**
 3. Set the following in the **Environment Variables** tab:
    - `OPENAI_API_KEY` — required
    - `VITE_LINKEDIN_URL`, `VITE_OWNER_NAME`, `VITE_OWNER_TITLE` — required (frontend branding)
    - `PUSHOVER_TOKEN`, `PUSHOVER_USER` — optional, for mobile notifications
-   - `ME_DIR=/etc/secrets` — tells the backend where to find uploaded files
-4. Upload your personal docs as **Secret Files** (Render dashboard → your service → **Secret Files**):
-   - `/etc/secrets/profile.pdf` — your CV / resume (required)
-   - `/etc/secrets/reference_letter.pdf` — reference letter (optional)
-   - `/etc/secrets/summary.txt` — short text summary (required)
-5. Click **Deploy**
+4. Click **Deploy**
 
 Render automatically detects `render.yaml` and sets up the service. The free plan spins the container down after inactivity — upgrade to a paid plan if you need always-on availability.
 
