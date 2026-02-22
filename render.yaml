@@ -4,8 +4,6 @@ services:
     env: docker
     plan: free
     envVars:
-      - key: ME_DIR
-        value: /etc/secrets
       - key: OPENAI_API_KEY
         sync: false
       - key: PUSHOVER_TOKEN
