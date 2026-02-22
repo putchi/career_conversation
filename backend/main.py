@@ -1,3 +1,4 @@
+import json
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -5,6 +6,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 
 from backend.chat import Me
@@ -44,6 +46,19 @@ async def chat(request: ChatRequest):
     history = [{"role": m.role, "content": m.content} for m in request.history]
     reply = me.chat(request.message, history)
     return ChatResponse(reply=reply)
+
+
+@app.get("/config.js")
+async def config_js():
+    config = {
+        "ownerName": os.getenv("VITE_OWNER_NAME", ""),
+        "ownerTitle": os.getenv("VITE_OWNER_TITLE", ""),
+        "linkedinUrl": os.getenv("VITE_LINKEDIN_URL", ""),
+    }
+    return Response(
+        content=f"window.CAREER_CONFIG = {json.dumps(config)};",
+        media_type="application/javascript",
+    )
 
 
 # Mount frontend — must be last (catch-all)

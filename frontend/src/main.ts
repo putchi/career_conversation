@@ -1,5 +1,11 @@
 import { sendMessage, type Message } from './api.js';
 
+// ── Runtime config (injected by backend at /config.js; fallback to build-time env for local dev) ──
+const _cfg = (window as any).CAREER_CONFIG ?? {};
+const OWNER_NAME   = _cfg.ownerName   || import.meta.env.VITE_OWNER_NAME   || '';
+const OWNER_TITLE  = _cfg.ownerTitle  || import.meta.env.VITE_OWNER_TITLE  || '';
+const LINKEDIN_URL = _cfg.linkedinUrl || import.meta.env.VITE_LINKEDIN_URL || '#';
+
 // ── State ─────────────────────────────────────────────────────
 let history: Message[] = [];
 let isTyping = false;
@@ -28,10 +34,10 @@ app.innerHTML = `
       <div class="header-icon glow-primary">🤖</div>
       <div>
         <div class="header-title">
-          ${import.meta.env.VITE_OWNER_NAME}
+          ${OWNER_NAME}
           <span class="available-badge"><span class="available-dot"></span>Available for opportunities</span>
         </div>
-        <div class="header-subtitle">${import.meta.env.VITE_OWNER_TITLE}</div>
+        <div class="header-subtitle">${OWNER_TITLE}</div>
       </div>
     </div>
     <div class="header-right">
@@ -67,7 +73,7 @@ app.innerHTML = `
   <!-- Footer -->
   <footer class="app-footer">
     Powered by AI · Responses may not capture every detail
-    · <a href="${import.meta.env.VITE_LINKEDIN_URL}" target="_blank" rel="noopener noreferrer" class="footer-link">Connect on LinkedIn</a> for direct contact
+    · <a href="${LINKEDIN_URL}" target="_blank" rel="noopener noreferrer" class="footer-link">Connect on LinkedIn</a> for direct contact
   </footer>
 `;
 
