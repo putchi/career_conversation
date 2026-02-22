@@ -63,7 +63,7 @@ app.innerHTML = `
     <textarea
       id="chat-input"
       class="chat-input"
-      placeholder="Ask Alex anything..."
+      placeholder="Ask ${OWNER_NAME.split(' ')[0] || 'me'} anything..."
       rows="1"
     ></textarea>
     <button id="send-btn" class="send-btn" disabled title="Send">➤</button>
