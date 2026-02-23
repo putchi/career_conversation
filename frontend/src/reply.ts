@@ -80,7 +80,7 @@ export function attachReplyGestures(
   const replyBtn = document.createElement('button')
   replyBtn.className = 'reply-btn'
   replyBtn.setAttribute('aria-label', 'Reply')
-  replyBtn.textContent = '↩'
+  replyBtn.textContent = '↩\uFE0E'
   replyBtn.addEventListener('click', () => showReplyBanner(role, content))
   msgEl.appendChild(replyBtn)
 
