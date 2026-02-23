@@ -27,11 +27,15 @@ backend/
   tools.py   # OpenAI tool definitions + Pushover notification helpers
   models.py  # Pydantic request/response models
 frontend/
-  vite.config.ts  # Proxies /api → localhost:8000; loads .env from project root (envDir: '../')
+  vite.config.ts     # Proxies /api → localhost:8000; loads .env from project root (envDir: '../')
+  vitest.config.ts   # jsdom env, v8 coverage
   src/
     api.ts     # Chat API client
     main.ts    # UI entry point
-me/          # Gitignored personal docs loaded at startup (see below)
+    reply.ts   # Reply/quote feature — state, banner DOM, HammerJS touch gestures
+docs/
+  plans/       # Implementation plan docs (markdown) — named YYYY-MM-DD-<feature>.md
+me/            # Gitignored personal docs loaded at startup (see below)
 ```
 
 ## Environment Variables
@@ -51,4 +55,22 @@ Deployment: `ME_DIR=/etc/secrets` (Render Secret Files mount path)
 - CORS is hardcoded to `http://localhost:5173` in `main.py` — not a production issue because FastAPI
   serves both frontend and backend from the same origin; CORS only applies in local dev.
 - Pushover silently no-ops if tokens are missing — errors won't surface.
-- No test suite.
+- Test suite lives in `frontend/src/*.test.ts`; run with `cd frontend && npm test` or `npm run test:coverage`.
+
+## Testing
+
+- Each test suite calls `vi.resetModules()` + `await import('./main.js')` in `beforeEach` for fresh module-level state and a clean DOM.
+- HammerJS (and other side-effectful imports) must be mocked with `vi.mock(...)` before any dynamic import — Vitest hoists these automatically.
+- `hammerjs` is a runtime dep (not dev) — used for swipe/long-press gestures in `reply.ts`.
+
+## Git Commit Messages
+
+- Imperative mood: "Fix bug" not "Fixed bug"
+- Under 72 chars in subject line
+- No emojis, no marketing language, no AI-sounding words (seamlessly, robust, streamline, ensure, utilize, facilitate)
+- No "This commit...", "Let's...", "Enhances...", "Leverages..."
+- No `Co-Authored-By` trailer or any AI attribution
+- Body (if needed) explains why, not what — skip it for obvious changes
+
+Bad: `✨ Enhance payment flow to streamline user experience`
+Good: `Fix retry logic on failed payment webhook`

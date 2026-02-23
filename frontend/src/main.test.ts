@@ -9,6 +9,20 @@ vi.mock('./api.js', () => ({
   sendMessage: mockSendMessage,
 }))
 
+const mockInitReply = vi.fn()
+const mockAttachReplyGestures = vi.fn()
+const mockGetReplyPrefix = vi.fn(() => null as string | null)
+const mockClearReply = vi.fn()
+const mockGetActiveReply = vi.fn(() => null as { role: 'user' | 'assistant'; content: string } | null)
+
+vi.mock('./reply.js', () => ({
+  initReply: mockInitReply,
+  attachReplyGestures: mockAttachReplyGestures,
+  getReplyPrefix: mockGetReplyPrefix,
+  clearReply: mockClearReply,
+  getActiveReply: mockGetActiveReply,
+}))
+
 const DEFAULT_CONFIG = {
   ownerName: 'Alex Rabinovich',
   ownerTitle: 'Software Engineer',
@@ -16,8 +30,15 @@ const DEFAULT_CONFIG = {
 }
 
 async function setup(config = DEFAULT_CONFIG) {
-  mockSendMessage.mockReset()  // Clear call history and implementation
-  vi.resetModules()            // Re-run main.ts module-level code for fresh DOM
+  mockSendMessage.mockReset()
+  mockGetReplyPrefix.mockReset()
+  mockGetReplyPrefix.mockReturnValue(null)
+  mockClearReply.mockReset()
+  mockInitReply.mockReset()
+  mockAttachReplyGestures.mockReset()
+  mockGetActiveReply.mockReset()
+  mockGetActiveReply.mockReturnValue(null)
+  vi.resetModules()
   document.body.innerHTML = '<div id="app"></div>'
   ;(window as any).CAREER_CONFIG = config
   await import('./main.js')
@@ -442,5 +463,129 @@ describe('suggestion chips', () => {
     await new Promise(r => setTimeout(r, 10))
     // send('') returns early without calling sendMessage
     expect(sendMessage).not.toHaveBeenCalled()
+  })
+})
+
+// ── Reply integration ─────────────────────────────────────────
+
+describe('reply integration', () => {
+  it('embeds quote prefix in message sent to API when reply is active', async () => {
+    const sendMessage = await setup()
+    sendMessage.mockResolvedValue('ok')
+    mockGetReplyPrefix.mockReturnValue('[Replying to "Hello"]\n\n')
+
+    const input = document.getElementById('chat-input') as HTMLTextAreaElement
+    input.value = 'tell me more'
+    input.dispatchEvent(new Event('input'))
+    document.getElementById('send-btn')!.click()
+
+    await vi.waitFor(() => {
+      expect(sendMessage).toHaveBeenCalledWith(
+        '[Replying to "Hello"]\n\ntell me more',
+        expect.any(Array)
+      )
+    })
+  })
+
+  it('display bubble shows only raw user text, not the prefix', async () => {
+    const sendMessage = await setup()
+    sendMessage.mockResolvedValue('ok')
+    mockGetReplyPrefix.mockReturnValue('[Replying to "Hello"]\n\n')
+
+    const input = document.getElementById('chat-input') as HTMLTextAreaElement
+    input.value = 'tell me more'
+    input.dispatchEvent(new Event('input'))
+    document.getElementById('send-btn')!.click()
+
+    const bubble = document.querySelector('.message.user .message-bubble')!
+    expect(bubble.textContent).toBe('tell me more')
+    expect(bubble.textContent).not.toContain('[Replying to')
+  })
+
+  it('calls clearReply after sending', async () => {
+    const sendMessage = await setup()
+    sendMessage.mockResolvedValue('ok')
+
+    const input = document.getElementById('chat-input') as HTMLTextAreaElement
+    input.value = 'hello'
+    input.dispatchEvent(new Event('input'))
+    document.getElementById('send-btn')!.click()
+
+    await vi.waitFor(() => {
+      expect(mockClearReply).toHaveBeenCalled()
+    })
+  })
+
+  it('calls clearReply when clearing the conversation', async () => {
+    await setup()
+    document.getElementById('clear-btn')!.click()
+    expect(mockClearReply).toHaveBeenCalled()
+  })
+
+  it('renders quote block in bubble when reply context is active', async () => {
+    const sendMessage = await setup()
+    sendMessage.mockResolvedValue('ok')
+    mockGetActiveReply.mockReturnValue({ role: 'assistant', content: 'Hello world' })
+
+    const input = document.getElementById('chat-input') as HTMLTextAreaElement
+    input.value = 'tell me more'
+    input.dispatchEvent(new Event('input'))
+    document.getElementById('send-btn')!.click()
+
+    const bubble = document.querySelector('.message.user .message-bubble')!
+    expect(bubble.querySelector('.message-quote')).not.toBeNull()
+  })
+
+  it('quote block shows "Digital Twin" for assistant context', async () => {
+    const sendMessage = await setup()
+    sendMessage.mockResolvedValue('ok')
+    mockGetActiveReply.mockReturnValue({ role: 'assistant', content: 'Hello' })
+
+    const input = document.getElementById('chat-input') as HTMLTextAreaElement
+    input.value = 'reply'
+    input.dispatchEvent(new Event('input'))
+    document.getElementById('send-btn')!.click()
+
+    expect(document.querySelector('.message.user .message-quote-role')!.textContent).toBe('Digital Twin')
+  })
+
+  it('quote block shows "You" for user context', async () => {
+    const sendMessage = await setup()
+    sendMessage.mockResolvedValue('ok')
+    mockGetActiveReply.mockReturnValue({ role: 'user', content: 'my message' })
+
+    const input = document.getElementById('chat-input') as HTMLTextAreaElement
+    input.value = 'reply'
+    input.dispatchEvent(new Event('input'))
+    document.getElementById('send-btn')!.click()
+
+    expect(document.querySelector('.message.user .message-quote-role')!.textContent).toBe('You')
+  })
+
+  it('quote block shows the quoted text snippet', async () => {
+    const sendMessage = await setup()
+    sendMessage.mockResolvedValue('ok')
+    mockGetActiveReply.mockReturnValue({ role: 'assistant', content: 'Hello world snippet' })
+
+    const input = document.getElementById('chat-input') as HTMLTextAreaElement
+    input.value = 'reply'
+    input.dispatchEvent(new Event('input'))
+    document.getElementById('send-btn')!.click()
+
+    expect(document.querySelector('.message.user .message-quote-text')!.textContent).toBe('Hello world snippet')
+  })
+
+  it('renders no quote block when no reply context', async () => {
+    const sendMessage = await setup()
+    sendMessage.mockResolvedValue('ok')
+    // mockGetActiveReply returns null by default
+
+    const input = document.getElementById('chat-input') as HTMLTextAreaElement
+    input.value = 'hello'
+    input.dispatchEvent(new Event('input'))
+    document.getElementById('send-btn')!.click()
+
+    const bubble = document.querySelector('.message.user .message-bubble')!
+    expect(bubble.querySelector('.message-quote')).toBeNull()
   })
 })

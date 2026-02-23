@@ -1,4 +1,5 @@
 import { sendMessage, type Message } from './api.js';
+import { initReply, attachReplyGestures, getReplyPrefix, clearReply, getActiveReply } from './reply.js';
 
 // ── Runtime config (injected by backend at /config.js; fallback to build-time env for local dev) ──
 const _cfg = (window as any).CAREER_CONFIG ?? {};
@@ -60,14 +61,16 @@ app.innerHTML = `
 
   <!-- Input -->
   <div class="input-area">
-    <textarea
-      id="chat-input"
-      class="chat-input"
-      placeholder="Ask ${OWNER_NAME.split(' ')[0] || 'me'} anything..."
-      rows="1"
-    ></textarea>
-    <button id="send-btn" class="send-btn" disabled title="Send">➤</button>
-    <button id="clear-btn" class="clear-btn" title="Clear conversation">↺</button>
+    <div class="input-row">
+      <textarea
+        id="chat-input"
+        class="chat-input"
+        placeholder="Ask ${OWNER_NAME.split(' ')[0] || 'me'} anything..."
+        rows="1"
+      ></textarea>
+      <button id="send-btn" class="send-btn" disabled title="Send">➤</button>
+      <button id="clear-btn" class="clear-btn" title="Clear conversation">↺</button>
+    </div>
   </div>
 
   <!-- Footer -->
@@ -98,19 +101,40 @@ function updateSendBtn() {
   sendBtn.disabled = isTyping || !inputEl.value.trim();
 }
 
-function addMessage(role: 'user' | 'assistant', content: string) {
+function addMessage(
+  role: 'user' | 'assistant',
+  content: string,
+  replyContext?: { role: 'user' | 'assistant'; content: string } | null
+) {
   const isUser = role === 'user';
   const div = document.createElement('div');
   div.className = `message ${isUser ? 'user' : 'bot'}`;
+
+  const quoteHtml = replyContext ? (() => {
+    const snippet = replyContext.content.length > 80
+      ? replyContext.content.slice(0, 80) + '…'
+      : replyContext.content;
+    const roleName = replyContext.role === 'user' ? 'You' : 'Digital Twin';
+    return `
+      <div class="message-quote message-quote--${replyContext.role}">
+        <div class="message-quote-bar"></div>
+        <div class="message-quote-body">
+          <span class="message-quote-role">${roleName}</span>
+          <span class="message-quote-text">${escapeHtml(snippet)}</span>
+        </div>
+      </div>`;
+  })() : '';
+
   div.innerHTML = `
     <div class="message-avatar">${isUser ? '👤' : '🤖'}</div>
     <div class="message-body">
       <span class="message-label">${isUser ? 'You' : 'Digital Twin'}</span>
-      <div class="message-bubble">${escapeHtml(content)}</div>
+      <div class="message-bubble">${quoteHtml}${escapeHtml(content)}</div>
     </div>
   `;
   messagesEl.appendChild(div);
   scrollToBottom();
+  attachReplyGestures(div, role, content);
 }
 
 function showTypingIndicator(): HTMLElement {
@@ -149,11 +173,17 @@ function escapeHtml(text: string): string {
 async function send(message: string) {
   if (!message.trim() || isTyping) return;
 
+  const prefix = getReplyPrefix();
+  const fullMessage = prefix ? `${prefix}${message}` : message;
+  const replyContext = getActiveReply();
+  clearReply();
+
   // Hide suggestions after first message
   suggestionsEl.style.display = 'none';
 
-  addMessage('user', message);
-  history.push({ role: 'user', content: message });
+  // display raw text only; fullMessage (with reply prefix) goes to history and API
+  addMessage('user', message, replyContext);
+  history.push({ role: 'user', content: fullMessage });
 
   inputEl.value = '';
   autoResize();
@@ -163,7 +193,7 @@ async function send(message: string) {
   const indicator = showTypingIndicator();
 
   try {
-    const reply = await sendMessage(message, history.slice(0, -1));
+    const reply = await sendMessage(fullMessage, history.slice(0, -1));
     indicator.remove();
     addMessage('assistant', reply);
     history.push({ role: 'assistant', content: reply });
@@ -181,6 +211,7 @@ async function send(message: string) {
 
 // ── Clear ─────────────────────────────────────────────────────
 function clearConversation() {
+  clearReply();
   history = [];
   messagesEl.innerHTML = '';
   suggestionsEl.style.display = 'flex';
@@ -211,3 +242,4 @@ suggestionsEl.addEventListener('click', (e) => {
 
 // ── Init ──────────────────────────────────────────────────────
 inputEl.focus();
+initReply(document.querySelector<HTMLElement>('.input-area')!);

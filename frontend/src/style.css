@@ -338,6 +338,8 @@ html, body {
   font-size: 0.875rem;
   line-height: 1.625;
   border: 1px solid;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .message.user .message-bubble {
@@ -357,6 +359,50 @@ html, body {
   box-shadow:
     inset 0 0 20px hsla(170, 80%, 50%, 0.03),
     0 0 15px hsla(170, 80%, 50%, 0.06);
+}
+
+/* ── Quoted reply block (inside message bubble) ──────────── */
+.message-quote {
+  display: flex;
+  gap: 0.5rem;
+  border-radius: 0.375rem;
+  padding: 0.375rem 0.5rem;
+  margin-bottom: 0.375rem;
+  background: hsla(0, 0%, 0%, 0.15);
+}
+
+.message-quote-bar {
+  width: 3px;
+  border-radius: 99px;
+  align-self: stretch;
+  flex-shrink: 0;
+}
+
+.message-quote--user .message-quote-bar     { background: var(--chat-user); }
+.message-quote--assistant .message-quote-bar { background: var(--accent); }
+
+.message-quote-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.message-quote-role {
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.message-quote--user .message-quote-role     { color: var(--chat-user); }
+.message-quote--assistant .message-quote-role { color: var(--accent); }
+
+.message-quote-text {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ── Typing Indicator ─────────────────────────────────────── */
@@ -412,11 +458,17 @@ html, body {
   position: relative;
   z-index: 20;
   display: flex;
-  gap: 0.75rem;
-  padding: 1rem 1.25rem;
+  flex-direction: column;
+  padding: 0;
   border-top: 1px solid hsla(200, 15%, 18%, 0.6);
   background: linear-gradient(135deg, hsla(220, 20%, 12%, 0.8), hsla(220, 22%, 10%, 0.95));
   backdrop-filter: blur(12px);
+}
+
+.input-row {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem 1rem;
 }
 
 .chat-input {
@@ -536,4 +588,116 @@ html, body {
     border-left: 1px solid var(--border);
     border-right: 1px solid var(--border);
   }
+}
+
+/* ─── Reply Banner ─────────────────────────────────────────── */
+
+.reply-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 1.25rem;
+  background: hsla(220, 20%, 10%, 0.9);
+  border-bottom: 1px solid hsla(200, 15%, 18%, 0.5);
+  animation: reply-banner-in 0.15s ease-out;
+}
+
+/* [hidden] from UA stylesheet (specificity 0-1-0) is overridden by
+   .reply-banner { display: flex } (also 0-1-0, but author > UA).
+   This combined selector (0-1-1) beats both and restores proper hiding. */
+.reply-banner[hidden] { display: none; }
+
+@keyframes reply-banner-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.reply-banner-bar {
+  width: 3px;
+  align-self: stretch;
+  border-radius: 99px;
+  flex-shrink: 0;
+}
+
+.reply-banner-bar--user      { background: var(--chat-user); }
+.reply-banner-bar--assistant { background: var(--accent); }
+
+.reply-banner-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.reply-banner-role {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.reply-banner-role--user      { color: var(--chat-user); }
+.reply-banner-role--assistant { color: var(--accent); }
+
+.reply-banner-text {
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.reply-banner-close {
+  background: none;
+  border: none;
+  color: var(--foreground);
+  opacity: 0.5;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+}
+
+.reply-banner-close:hover { opacity: 1; }
+
+/* ─── Reply Button (desktop hover) ──────────────────────────── */
+
+.message {
+  position: relative;  /* needed for .reply-btn absolute positioning */
+}
+
+.reply-btn {
+  position: absolute;
+  top: 0.5rem;
+  opacity: 0;
+  background: hsla(220, 20%, 18%, 0.9);
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  color: var(--foreground);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  transition: opacity 0.15s, background 0.15s;
+  pointer-events: none;
+}
+
+/* User bubbles are right-aligned — put reply btn to their left */
+.message.user .reply-btn { right: calc(100% - 2.5rem); }
+/* Bot bubbles are left-aligned — put reply btn to their right */
+.message.bot  .reply-btn { left: calc(100% - 2.5rem); }
+
+.message:hover .reply-btn,
+.message:focus-within .reply-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.reply-btn:hover { background: hsla(220, 20%, 26%, 0.95); }
+
+/* ─── Swipe spring-back ──────────────────────────────────────── */
+
+.message-bubble {
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
