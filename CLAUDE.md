@@ -63,14 +63,23 @@ Deployment: `ME_DIR=/etc/secrets` (Render Secret Files mount path)
 - HammerJS (and other side-effectful imports) must be mocked with `vi.mock(...)` before any dynamic import — Vitest hoists these automatically.
 - `hammerjs` is a runtime dep (not dev) — used for swipe/long-press gestures in `reply.ts`.
 
-## Git Commit Messages
+## Git Commit Rules
 
-- Imperative mood: "Fix bug" not "Fixed bug"
-- Under 72 chars in subject line
-- No emojis, no marketing language, no AI-sounding words (seamlessly, robust, streamline, ensure, utilize, facilitate)
-- No "This commit...", "Let's...", "Enhances...", "Leverages..."
-- No `Co-Authored-By` trailer or any AI attribution
-- Body (if needed) explains why, not what — skip it for obvious changes
+**When to commit:**
 
-Bad: `✨ Enhance payment flow to streamline user experience`
+Read-only git commands (`git log`, `git diff`, `git status`, `git show`, etc.) are allowed at any time. Never run write commands — `git add`, `git commit`, `git push`, `git rebase`, `git merge`, `git reset`, `git stash`, or anything that modifies the repo state — unless explicitly instructed by the user.
+
+**How to write commit messages:**
+
+- Imperative mood only: "Fix bug" not "Fixed bug" or "Fixes bug"
+- Subject line under 72 characters
+- No emojis, no punctuation flourishes
+- No filler phrases: "This commit...", "Now we can...", "Let's...", "Enhances...", "Leverages..."
+- No AI-flavored words: seamlessly, robust, streamline, ensure, utilize, facilitate
+- No `Co-authored-by` trailer or any AI attribution
+- Body only when context is non-obvious — explain *why*, never *what* (the diff shows what)
+
+**Examples:**
+
+Bad: `✨ Enhance payment flow to streamline user experience and ensure robust error handling`
 Good: `Fix retry logic on failed payment webhook`
