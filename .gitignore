@@ -9,3 +9,6 @@ frontend/dist/
 uv.lock
 .pids/
 logs/
+.pytest_cache/
+.playwright-mcp/
+.coverage
