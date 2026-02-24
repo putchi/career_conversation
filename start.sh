@@ -25,6 +25,8 @@ FRONTEND_LOG="$LOGS_DIR/frontend.log"
 
 mkdir -p "$PIDS_DIR" "$LOGS_DIR"
 
+NPM_CMD="npm"  # may be overridden in preflight if npm isn't directly in PATH
+
 # ── Colors ────────────────────────────────────────────────────────────────────
 BOLD='\033[1m'
 DIM='\033[2m'
@@ -100,7 +102,7 @@ rebuild_frontend() {
   step "Rebuilding frontend — installing npm packages"
   info "Running: npm install  (in frontend/)"
   cd "$DIR/frontend"
-  if npm install; then
+  if $NPM_CMD install; then
     ok "npm packages installed"
   else
     err "npm install failed — aborting"
@@ -154,7 +156,7 @@ start_frontend() {
     echo ""
     echo "=== Frontend started at $(date) ==="
   } >> "$FRONTEND_LOG"
-  npm run dev >> "$FRONTEND_LOG" 2>&1 &
+  $NPM_CMD run dev >> "$FRONTEND_LOG" 2>&1 &
   local pid=$!
   echo "$pid" > "$FRONTEND_PID"
   cd "$DIR"
@@ -238,6 +240,16 @@ preflight() {
     ok "node $(node --version)"
   else
     err "node not found — install Node.js 20+"
+    all_ok=false
+  fi
+
+  if command -v npm &>/dev/null; then
+    ok "npm $(npm --version 2>/dev/null | head -1)"
+  elif command -v node &>/dev/null && [[ -e "$(dirname "$(command -v node)")/npm" ]]; then
+    NPM_CMD="$(dirname "$(command -v node)")/npm"
+    ok "npm $($NPM_CMD --version 2>/dev/null | head -1) (at $NPM_CMD)"
+  else
+    err "npm not found — reinstall Node.js 20+"
     all_ok=false
   fi
 
