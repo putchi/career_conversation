@@ -14,6 +14,7 @@ export default {
       of: [{ type: 'string' }],
     },
     { name: 'summary',      title: 'Summary',               type: 'text' },
+    { name: 'model',        title: 'OpenAI Model',          type: 'string' },
     { name: 'profilePdf',   title: 'Profile PDF',           type: 'file' },
     { name: 'referencePdf', title: 'Reference Letter PDF',  type: 'file' },
   ],

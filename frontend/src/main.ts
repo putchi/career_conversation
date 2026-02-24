@@ -1,3 +1,4 @@
+import { marked } from 'marked';
 import { sendMessage, type Message } from './api.js';
 import { initReply, attachReplyGestures, getReplyPrefix, clearReply, getActiveReply } from './reply.js';
 
@@ -125,7 +126,7 @@ function addMessage(
     <div class="message-avatar">${isUser ? '👤' : '🤖'}</div>
     <div class="message-body">
       <span class="message-label">${isUser ? 'You' : 'Digital Twin'}</span>
-      <div class="message-bubble">${quoteHtml}${escapeHtml(content)}</div>
+      <div class="message-bubble">${quoteHtml}${isUser ? escapeHtml(content) : marked.parse(content)}</div>
     </div>
   `;
   messagesEl.appendChild(div);

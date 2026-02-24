@@ -26,7 +26,7 @@ class Me:
         dataset = os.environ.get("SANITY_DATASET", "production")
         query = (
             '*[_type == "profile"][0]{'
-            'name, title, linkedinUrl, websiteUrl, suggestions, summary,'
+            'name, title, linkedinUrl, websiteUrl, suggestions, summary, model,'
             '"profilePdfUrl": profilePdf.asset->url,'
             '"referencePdfUrl": referencePdf.asset->url'
             "}"
@@ -42,6 +42,7 @@ class Me:
         self.website_url = doc.get("websiteUrl") or ""
         self.suggestions = doc.get("suggestions") or []
         self.summary = doc["summary"]
+        self.model = doc.get("model") or "gpt-4.1-mini"
 
         pdf_response = requests.get(doc["profilePdfUrl"])
         pdf_response.raise_for_status()
@@ -80,6 +81,7 @@ class Me:
 
         with open(f"{ME_DIR}/summary.txt", "r", encoding="utf-8") as f:
             self.summary = f.read()
+        self.model = os.environ.get("OPENAI_MODEL", "gpt-4.1-mini")
 
     def system_prompt(self) -> str:
         intro = (
@@ -171,7 +173,7 @@ class Me:
         try:
             while not done:
                 response = self.openai.chat.completions.create(
-                    model="gpt-4.1-mini",
+                    model=self.model,
                     messages=messages,
                     tools=tools,
                 )

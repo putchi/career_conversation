@@ -28,6 +28,8 @@ Also set `OWNER_NAME`, `OWNER_TITLE`, `LINKEDIN_URL`, `WEBSITE_URL`, and `SUGGES
 
 Optionally set `PUSHOVER_TOKEN` / `PUSHOVER_USER` for mobile notifications (either option).
 
+Optionally set `OPENAI_MODEL` to change the model (default: `gpt-4.1-mini`). Only applies when running without Sanity — with Sanity, set the `model` field in the `Profile` document instead.
+
 ### 2. Start everything
 
 ```bash
@@ -92,7 +94,7 @@ Upgrade to a paid plan if you need always-on availability.
 All profile content and site config lives in Sanity Studio.
 
 1. Open your Sanity Studio (run `cd sanity && npm run dev` locally, or use the deployed Studio URL)
-2. Edit the `Profile` document — update text, upload new PDFs, change suggestion chips
+2. Edit the `Profile` document — update text, upload new PDFs, change suggestion chips, or set the `model` field to switch OpenAI models (leave blank for `gpt-4.1-mini`)
 3. In the Render dashboard → your service → **Restart** (not Redeploy — no build needed)
 
 The service restarts in seconds and fetches the latest content from Sanity on startup.
@@ -106,6 +108,22 @@ Edit `backend/chat.py` → `Me.system_prompt()`. The six sections are:
 4. **context** — the actual profile data (loaded from Sanity or `me/` at startup)
 5. **behaviour** — tone and style
 6. **privacy** — what personal info to never share
+
+## Troubleshooting
+
+### Sanity Studio shows "Unknown field found" after a schema change
+
+Sanity has two separate deploy steps that are easy to confuse:
+
+- `npx sanity@latest schema deploy` — pushes schema validation rules to the Sanity API. Does **not** update the Studio UI.
+- `npx sanity@latest deploy` — rebuilds and publishes the Studio itself to Sanity's hosting. This is what makes the UI aware of new fields.
+
+If you add a field to `schemas/profile.ts` and only run `schema deploy`, the Studio will still show the old schema and flag any data in the new field as "Unknown field found". Run both commands:
+
+```bash
+cd sanity && npx sanity@latest schema deploy
+cd sanity && npx sanity@latest deploy
+```
 
 ## Port Reference
 

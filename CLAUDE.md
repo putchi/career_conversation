@@ -15,6 +15,9 @@ uv run uvicorn backend.main:app --reload --port 8000  # Backend only (dev)
 
 cd frontend && npm run build    # Build frontend for production (outputs to frontend/dist)
 cd frontend && npm run preview  # Preview production build locally
+
+cd sanity && npx sanity@latest schema deploy  # Deploy schema to Sanity API (validation)
+cd sanity && npx sanity@latest deploy         # Deploy Studio bundle to Sanity hosting (updates UI)
 ```
 
 ## Architecture
@@ -24,7 +27,10 @@ backend/
   main.py    # FastAPI app — /api/chat endpoint, /config.js serves 5 config fields, mounts frontend/dist at /
   chat.py    # Me class — fetches from Sanity at startup (falls back to me/ if SANITY_PROJECT_ID unset)
              # _load_from_sanity(): GROQ query + PDF downloads; _load_from_files(): reads me/ dir + env vars (OWNER_NAME, OWNER_TITLE, LINKEDIN_URL, WEBSITE_URL)
+             # Both paths must set identical self.* attributes — adding one without the other breaks the fallback path
              # system_prompt() joins 6 sections: intro, scope, tool_instructions, context, behaviour, privacy
+sanity/
+  schemas/profile.ts   # Sanity document schema — add fields here, then run schema deploy
   tools.py   # OpenAI tool definitions + Pushover notification helpers
   models.py  # Pydantic request/response models
 frontend/
@@ -42,19 +48,22 @@ me/            # Gitignored personal docs loaded at startup (see below)
 ## Environment Variables
 
 Required: `OPENAI_API_KEY`, `SANITY_PROJECT_ID`
-Optional: `SANITY_DATASET` (default `"production"`), `PUSHOVER_TOKEN`, `PUSHOVER_USER` (mobile notifications)
+Optional: `SANITY_DATASET` (default `"production"`), `PUSHOVER_TOKEN`, `PUSHOVER_USER` (mobile notifications), `OPENAI_MODEL` (default `"gpt-4.1-mini"`, local dev only — production uses Sanity `profile.model` field)
 Local dev fallback (no Sanity): `OWNER_NAME`, `OWNER_TITLE`, `LINKEDIN_URL`, `WEBSITE_URL`, `SUGGESTIONS` (pipe-separated)
 Deployment: `ME_DIR=/etc/secrets` is no longer used — remove if present in Render env vars
 `PORT` — production port (default 8000 locally, 8080 in Docker/Render)
 
 ## Gotchas
 
+- LLM behavioral rules belong in `system_prompt()`, not tool descriptions. Tool descriptions are treated as parameter docs and instructions there are unreliable.
+- OpenAI model is configured in the Sanity `profile` document (`model` field). If blank, falls back to `"gpt-4.1-mini"`. Local dev uses `OPENAI_MODEL` env var.
 - `me/` files are local dev fallback only — used when `SANITY_PROJECT_ID` is not set. Production always needs `SANITY_PROJECT_ID`; `me/` is not in the Docker image and startup will fail without it.
 - Without `SANITY_PROJECT_ID`, backend reads `me/profile.pdf` and `me/summary.txt` (required) and `me/reference_letter.pdf` (optional). File names must match exactly.
 - Frontend `dist/` is built by Docker (`npm run build` in Dockerfile). In local dev, Vite serves
   the frontend on port 5173 directly — FastAPI's static mount at `/` is unused locally.
 - CORS is hardcoded to `http://localhost:5173` in `main.py` — not a production issue because FastAPI
   serves both frontend and backend from the same origin; CORS only applies in local dev.
+- Sanity has two separate deploy steps: `schema deploy` updates API-level validation; `npx sanity deploy` rebuilds and pushes the Studio bundle. After adding schema fields, both must be run — otherwise the Studio shows "Unknown field found" warnings even though the data is valid.
 - Pushover silently no-ops if tokens are missing — errors won't surface.
 - Test suite lives in `frontend/src/*.test.ts`; run with `cd frontend && npm test` or `npm run test:coverage`.
 
