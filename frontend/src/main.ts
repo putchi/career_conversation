@@ -1,22 +1,17 @@
 import { sendMessage, type Message } from './api.js';
 import { initReply, attachReplyGestures, getReplyPrefix, clearReply, getActiveReply } from './reply.js';
 
-// ── Runtime config (injected by backend at /config.js; fallback to build-time env for local dev) ──
+// ── Runtime config (injected by backend at /config.js) ──
 const _cfg = (window as any).CAREER_CONFIG ?? {};
-const OWNER_NAME   = _cfg.ownerName   || import.meta.env.VITE_OWNER_NAME   || '';
-const OWNER_TITLE  = _cfg.ownerTitle  || import.meta.env.VITE_OWNER_TITLE  || '';
-const LINKEDIN_URL = _cfg.linkedinUrl || import.meta.env.VITE_LINKEDIN_URL || '#';
+const OWNER_NAME    = _cfg.ownerName   || '';
+const OWNER_TITLE   = _cfg.ownerTitle  || '';
+const LINKEDIN_URL  = _cfg.linkedinUrl || '#';
+const WEBSITE_URL   = _cfg.websiteUrl  || '';
+const SUGGESTIONS: string[] = Array.isArray(_cfg.suggestions) ? _cfg.suggestions : [];
 
 // ── State ─────────────────────────────────────────────────────
 let history: Message[] = [];
 let isTyping = false;
-
-const SUGGESTIONS = [
-  "What's your technical background?",
-  "Tell me about your management experience",
-  "What industries have you worked in?",
-  "Are you open to relocation?",
-];
 
 // ── DOM ───────────────────────────────────────────────────────
 const app = document.getElementById('app')!;
@@ -76,6 +71,7 @@ app.innerHTML = `
   <!-- Footer -->
   <footer class="app-footer">
     Powered by AI · Responses may not capture every detail
+    ${WEBSITE_URL ? `· <a href="${WEBSITE_URL}" target="_blank" rel="noopener noreferrer" class="footer-link">Website</a>` : ''}
     · <a href="${LINKEDIN_URL}" target="_blank" rel="noopener noreferrer" class="footer-link">Connect on LinkedIn</a> for direct contact
   </footer>
 `;

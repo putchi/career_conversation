@@ -1,18 +1,73 @@
 import json
 import os
+from io import BytesIO
+
 import openai
+import requests
 from openai import OpenAI
 from pypdf import PdfReader
 
 from backend.tools import push, record_user_details, record_unknown_question, tools
 
 ME_DIR = os.environ.get("ME_DIR", "me")
+_SANITY_API_VERSION = "2021-06-07"
 
 
 class Me:
     def __init__(self) -> None:
         self.openai = OpenAI()
-        self.name = "Alex Rabinovich"
+        project_id = os.environ.get("SANITY_PROJECT_ID")
+        if project_id:
+            self._load_from_sanity(project_id)
+        else:
+            self._load_from_files()
+
+    def _load_from_sanity(self, project_id: str) -> None:
+        dataset = os.environ.get("SANITY_DATASET", "production")
+        query = (
+            '*[_type == "profile"][0]{'
+            'name, title, linkedinUrl, websiteUrl, suggestions, summary,'
+            '"profilePdfUrl": profilePdf.asset->url,'
+            '"referencePdfUrl": referencePdf.asset->url'
+            "}"
+        )
+        url = f"https://{project_id}.api.sanity.io/v{_SANITY_API_VERSION}/data/query/{dataset}"
+        response = requests.get(url, params={"query": query})
+        response.raise_for_status()
+        doc = response.json()["result"]
+
+        self.name = doc["name"]
+        self.title = doc["title"]
+        self.linkedin_url = doc["linkedinUrl"]
+        self.website_url = doc.get("websiteUrl") or ""
+        self.suggestions = doc.get("suggestions") or []
+        self.summary = doc["summary"]
+
+        pdf_response = requests.get(doc["profilePdfUrl"])
+        pdf_response.raise_for_status()
+        pdf_bytes = pdf_response.content
+        self.profile = "".join(
+            p.extract_text() or "" for p in PdfReader(BytesIO(pdf_bytes)).pages
+        )
+
+        ref_url = doc.get("referencePdfUrl")
+        if ref_url:
+            ref_response = requests.get(ref_url)
+            ref_response.raise_for_status()
+            ref_bytes = ref_response.content
+            self.ref_letter = "".join(
+                p.extract_text() or "" for p in PdfReader(BytesIO(ref_bytes)).pages
+            )
+        else:
+            self.ref_letter = ""
+
+    def _load_from_files(self) -> None:
+        self.name = os.environ.get("OWNER_NAME", "")
+        self.title = os.environ.get("OWNER_TITLE", "")
+        self.linkedin_url = os.environ.get("LINKEDIN_URL", "")
+        self.website_url = os.environ.get("WEBSITE_URL", "")
+        raw = os.environ.get("SUGGESTIONS", "")
+        self.suggestions = [s.strip() for s in raw.split("|") if s.strip()]
 
         reader = PdfReader(f"{ME_DIR}/profile.pdf")
         self.profile = "".join(p.extract_text() or "" for p in reader.pages)

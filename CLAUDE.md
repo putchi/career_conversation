@@ -21,8 +21,9 @@ cd frontend && npm run preview  # Preview production build locally
 
 ```
 backend/
-  main.py    # FastAPI app — /api/chat endpoint, mounts frontend/dist at /
-  chat.py    # Me class — loads me/ docs, builds system prompt, chat loop
+  main.py    # FastAPI app — /api/chat endpoint, /config.js serves 5 config fields, mounts frontend/dist at /
+  chat.py    # Me class — fetches from Sanity at startup (falls back to me/ if SANITY_PROJECT_ID unset)
+             # _load_from_sanity(): GROQ query + PDF downloads; _load_from_files(): reads me/ dir + env vars (OWNER_NAME, OWNER_TITLE, LINKEDIN_URL, WEBSITE_URL)
              # system_prompt() joins 6 sections: intro, scope, tool_instructions, context, behaviour, privacy
   tools.py   # OpenAI tool definitions + Pushover notification helpers
   models.py  # Pydantic request/response models
@@ -40,16 +41,16 @@ me/            # Gitignored personal docs loaded at startup (see below)
 
 ## Environment Variables
 
-Required: `OPENAI_API_KEY`, `VITE_LINKEDIN_URL`, `VITE_OWNER_NAME`, `VITE_OWNER_TITLE`
-Optional: `PUSHOVER_TOKEN`, `PUSHOVER_USER` (mobile notifications via Pushover)
-Deployment: `ME_DIR=/etc/secrets` (Render Secret Files mount path)
+Required: `OPENAI_API_KEY`, `SANITY_PROJECT_ID`
+Optional: `SANITY_DATASET` (default `"production"`), `PUSHOVER_TOKEN`, `PUSHOVER_USER` (mobile notifications)
+Local dev fallback (no Sanity): `OWNER_NAME`, `OWNER_TITLE`, `LINKEDIN_URL`, `WEBSITE_URL`, `SUGGESTIONS` (pipe-separated)
+Deployment: `ME_DIR=/etc/secrets` is no longer used — remove if present in Render env vars
 `PORT` — production port (default 8000 locally, 8080 in Docker/Render)
 
 ## Gotchas
 
-- `me/` is gitignored — must be created manually. Backend fails on init without `profile.pdf` and `summary.txt`. `reference_letter.pdf` is optional.
-- File names in `me/` must match exactly — `profile.pdf`, `reference_letter.pdf`, `summary.txt`.
-- `ME_DIR` env var sets where the backend looks for these files; defaults to `me/`.
+- `me/` files are local dev fallback only — used when `SANITY_PROJECT_ID` is not set. Production always needs `SANITY_PROJECT_ID`; `me/` is not in the Docker image and startup will fail without it.
+- Without `SANITY_PROJECT_ID`, backend reads `me/profile.pdf` and `me/summary.txt` (required) and `me/reference_letter.pdf` (optional). File names must match exactly.
 - Frontend `dist/` is built by Docker (`npm run build` in Dockerfile). In local dev, Vite serves
   the frontend on port 5173 directly — FastAPI's static mount at `/` is unused locally.
 - CORS is hardcoded to `http://localhost:5173` in `main.py` — not a production issue because FastAPI
@@ -63,14 +64,21 @@ Deployment: `ME_DIR=/etc/secrets` (Render Secret Files mount path)
 - HammerJS (and other side-effectful imports) must be mocked with `vi.mock(...)` before any dynamic import — Vitest hoists these automatically.
 - `hammerjs` is a runtime dep (not dev) — used for swipe/long-press gestures in `reply.ts`.
 
+## Playwright / Browser Debugging
+
+When using the Playwright MCP for UI debugging or visual verification, screenshots are saved to
+`.playwright-screenshots/` (gitignored). This is configured via `.mcp.json` in the project root using `--output-dir
+.playwright-screenshots`.
+
+Never pass explicit root-relative filenames like `screenshot.png` to `browser_take_screenshot` — omit the `filename`
+parameter and let the output dir handle it.
+
 ## Git Commit Rules
 
 **When to commit:**
-
-Read-only git commands (`git log`, `git diff`, `git status`, `git show`, etc.) are allowed at any time. Never run write commands — `git add`, `git commit`, `git push`, `git rebase`, `git merge`, `git reset`, `git stash`, or anything that modifies the repo state — unless explicitly instructed by the user.
+Read-only git commands (`git log`, `git diff`, `git status`, `git show`, etc.) are allowed at any time. Never run write commands — `git add`, `git commit`, `git push`, `git rebase`, `git merge`, `git reset`, `git stash`, or anything that modifies the repo state — unless explicitly instructed by the user. Do not perform any git write actions until all tasks are complete and tested, and always ask the user before proceeding.
 
 **How to write commit messages:**
-
 - Imperative mood only: "Fix bug" not "Fixed bug" or "Fixes bug"
 - Subject line under 72 characters
 - No emojis, no punctuation flourishes
@@ -80,6 +88,10 @@ Read-only git commands (`git log`, `git diff`, `git status`, `git show`, etc.) a
 - Body only when context is non-obvious — explain *why*, never *what* (the diff shows what)
 
 **Examples:**
+```
+# Bad
+✨ Enhance payment flow to streamline user experience and ensure robust error handling
 
-Bad: `✨ Enhance payment flow to streamline user experience and ensure robust error handling`
-Good: `Fix retry logic on failed payment webhook`
+# Good
+Fix retry logic on failed payment webhook
+```

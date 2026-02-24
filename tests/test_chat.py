@@ -1,4 +1,6 @@
 import json
+import os
+from io import BytesIO
 from unittest.mock import MagicMock, patch, mock_open
 
 import httpx
@@ -43,7 +45,10 @@ def _create_me(profile_text="Profile text", ref_text=None, summary_text="Summary
     with patch("backend.chat.PdfReader", side_effect=mock_pdf_reader), \
          patch("builtins.open", mock_open(read_data=summary_text)), \
          patch("backend.chat.OpenAI", return_value=mock_openai):
-        me = Me()
+        # Ensure local file path is taken even if SANITY_PROJECT_ID is set in environment
+        with patch.dict(os.environ, {"OWNER_NAME": "Alex Rabinovich"}, clear=False):
+            os.environ.pop("SANITY_PROJECT_ID", None)
+            me = Me()
 
     return me
 
@@ -330,3 +335,148 @@ def test_chat_generic_exception_calls_push():
         me.chat("hi", [])
     mock_push.assert_called_once()
     assert "ValueError" in mock_push.call_args[0][0]
+
+
+# ── Sanity fetch path ──────────────────────────────────────────
+
+def _make_sanity_doc(**overrides):
+    """Return a minimal valid Sanity profile doc."""
+    doc = {
+        "name": "Alex Rabinovich",
+        "title": "Senior Engineer",
+        "linkedinUrl": "https://linkedin.com/in/alex",
+        "websiteUrl": "https://alexrabinovich.onrender.com/",
+        "suggestions": ["Tell me about your background"],
+        "summary": "Experienced software engineer",
+        "profilePdfUrl": "https://cdn.sanity.io/files/proj/prod/profile.pdf",
+        "referencePdfUrl": None,
+    }
+    doc.update(overrides)
+    return doc
+
+
+def _create_me_from_sanity(doc=None):
+    """Create a Me instance using the Sanity path (SANITY_PROJECT_ID set)."""
+    if doc is None:
+        doc = _make_sanity_doc()
+
+    api_response = MagicMock()
+    api_response.json.return_value = {"result": doc}
+
+    pdf_response = MagicMock()
+    pdf_response.content = b"fake pdf bytes"
+
+    mock_page = MagicMock()
+    mock_page.extract_text.return_value = "Profile text"
+
+    with patch.dict(os.environ, {"SANITY_PROJECT_ID": "testproject123"}), \
+         patch("backend.chat.requests.get") as mock_get, \
+         patch("backend.chat.PdfReader") as mock_reader, \
+         patch("backend.chat.OpenAI"):
+        mock_get.side_effect = [api_response, pdf_response]
+        mock_reader.return_value.pages = [mock_page]
+        me = Me()
+
+    return me
+
+
+def test_sanity_init_loads_name_and_title():
+    me = _create_me_from_sanity()
+    assert me.name == "Alex Rabinovich"
+    assert me.title == "Senior Engineer"
+
+
+def test_sanity_init_loads_urls():
+    me = _create_me_from_sanity()
+    assert me.linkedin_url == "https://linkedin.com/in/alex"
+    assert me.website_url == "https://alexrabinovich.onrender.com/"
+
+
+def test_sanity_init_loads_suggestions():
+    me = _create_me_from_sanity()
+    assert me.suggestions == ["Tell me about your background"]
+
+
+def test_sanity_init_loads_summary():
+    me = _create_me_from_sanity()
+    assert me.summary == "Experienced software engineer"
+
+
+def test_sanity_init_loads_profile_pdf():
+    me = _create_me_from_sanity()
+    assert me.profile == "Profile text"
+
+
+def test_sanity_init_ref_letter_empty_when_url_null():
+    doc = _make_sanity_doc(referencePdfUrl=None)
+    me = _create_me_from_sanity(doc=doc)
+    assert me.ref_letter == ""
+
+
+def test_sanity_init_loads_ref_letter_when_url_present():
+    doc = _make_sanity_doc(referencePdfUrl="https://cdn.sanity.io/files/proj/prod/ref.pdf")
+
+    api_response = MagicMock()
+    api_response.json.return_value = {"result": doc}
+
+    profile_pdf = MagicMock()
+    profile_pdf.content = b"profile pdf"
+
+    ref_pdf = MagicMock()
+    ref_pdf.content = b"ref pdf"
+
+    call_count = 0
+
+    def mock_pdf_reader(_):
+        nonlocal call_count
+        reader = MagicMock()
+        page = MagicMock()
+        page.extract_text.return_value = "Ref text" if call_count > 0 else "Profile text"
+        reader.pages = [page]
+        call_count += 1
+        return reader
+
+    with patch.dict(os.environ, {"SANITY_PROJECT_ID": "testproject123"}), \
+         patch("backend.chat.requests.get") as mock_get, \
+         patch("backend.chat.PdfReader", side_effect=mock_pdf_reader), \
+         patch("backend.chat.OpenAI"):
+        mock_get.side_effect = [api_response, profile_pdf, ref_pdf]
+        me = Me()
+
+    assert me.ref_letter == "Ref text"
+
+
+def test_sanity_website_url_defaults_to_empty_when_absent():
+    doc = _make_sanity_doc()
+    doc.pop("websiteUrl", None)
+    me = _create_me_from_sanity(doc=doc)
+    assert me.website_url == ""
+
+
+def test_sanity_suggestions_defaults_to_empty_list_when_absent():
+    doc = _make_sanity_doc()
+    doc.pop("suggestions", None)
+    me = _create_me_from_sanity(doc=doc)
+    assert me.suggestions == []
+
+
+def test_local_fallback_used_when_no_sanity_project_id():
+    """Without SANITY_PROJECT_ID, Me loads from local files."""
+    me = _create_me()  # uses existing _create_me which has no SANITY_PROJECT_ID
+    assert me.profile == "Profile text"
+    assert me.name == "Alex Rabinovich"
+
+
+def test_local_fallback_suggestions_from_env():
+    with patch("backend.chat.PdfReader", side_effect=lambda p: (_ for _ in ()).throw(FileNotFoundError()) if "reference" in p else MagicMock(pages=[MagicMock(extract_text=lambda: "")])), \
+         patch("builtins.open", mock_open(read_data="")), \
+         patch("backend.chat.OpenAI", return_value=MagicMock()), \
+         patch.dict(os.environ, {"OWNER_NAME": "", "SUGGESTIONS": "Q1|Q2|Q3"}, clear=False):
+        os.environ.pop("SANITY_PROJECT_ID", None)
+        me = Me()
+    assert me.suggestions == ["Q1", "Q2", "Q3"]
+
+
+def test_local_fallback_suggestions_empty_when_env_unset():
+    me = _create_me()
+    assert me.suggestions == []

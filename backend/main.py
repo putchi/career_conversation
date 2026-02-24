@@ -51,9 +51,11 @@ async def chat(request: ChatRequest):
 @app.get("/config.js")
 async def config_js():
     config = {
-        "ownerName": os.getenv("VITE_OWNER_NAME", ""),
-        "ownerTitle": os.getenv("VITE_OWNER_TITLE", ""),
-        "linkedinUrl": os.getenv("VITE_LINKEDIN_URL", ""),
+        "ownerName":   me.name,
+        "ownerTitle":  me.title,
+        "linkedinUrl": me.linkedin_url,
+        "websiteUrl":  me.website_url,
+        "suggestions": me.suggestions,
     }
     return Response(
         content=f"window.CAREER_CONFIG = {json.dumps(config)};",

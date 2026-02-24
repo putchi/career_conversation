@@ -27,6 +27,13 @@ const DEFAULT_CONFIG = {
   ownerName: 'Alex Rabinovich',
   ownerTitle: 'Software Engineer',
   linkedinUrl: 'https://linkedin.com/in/alex',
+  websiteUrl: 'https://alexrabinovich.onrender.com/',
+  suggestions: [
+    "What's your technical background?",
+    "Tell me about your management experience",
+    "What industries have you worked in?",
+    "Are you open to relocation?",
+  ],
 }
 
 async function setup(config = DEFAULT_CONFIG) {
@@ -84,14 +91,42 @@ describe('initialization', () => {
 
   it('renders linkedin URL in footer link', async () => {
     await setup()
-    const link = document.querySelector('.footer-link') as HTMLAnchorElement
-    expect(link.getAttribute('href')).toBe('https://linkedin.com/in/alex')
+    const links = Array.from(document.querySelectorAll('.footer-link')) as HTMLAnchorElement[]
+    const hrefs = links.map(l => l.getAttribute('href'))
+    expect(hrefs).toContain('https://linkedin.com/in/alex')
   })
 
-  it('renders 4 suggestion chips', async () => {
+  it('renders chips matching config suggestions', async () => {
     await setup()
     const chips = document.querySelectorAll('.suggestion-chip')
-    expect(chips.length).toBe(4)
+    expect(chips.length).toBe(DEFAULT_CONFIG.suggestions.length)
+    expect((chips[0] as HTMLElement).dataset.prompt).toBe(DEFAULT_CONFIG.suggestions[0])
+  })
+
+  it('renders website link in footer', async () => {
+    await setup()
+    const links = Array.from(document.querySelectorAll('.footer-link')) as HTMLAnchorElement[]
+    const hrefs = links.map(l => l.getAttribute('href'))
+    expect(hrefs).toContain('https://alexrabinovich.onrender.com/')
+  })
+
+  it('omits website link when websiteUrl is empty', async () => {
+    await setup({ ...DEFAULT_CONFIG, websiteUrl: '' })
+    const links = document.querySelectorAll('.footer-link')
+    expect(links.length).toBe(1)
+  })
+
+  it('renders zero chips when suggestions is empty', async () => {
+    await setup({ ...DEFAULT_CONFIG, suggestions: [] })
+    const chips = document.querySelectorAll('.suggestion-chip')
+    expect(chips.length).toBe(0)
+  })
+
+  it('chip prompt matches config suggestion text', async () => {
+    await setup({ ...DEFAULT_CONFIG, suggestions: ['Tell me about Python'] })
+    const chip = document.querySelector('.suggestion-chip') as HTMLElement
+    expect(chip.dataset.prompt).toBe('Tell me about Python')
+    expect(chip.textContent).toBe('Tell me about Python')
   })
 
   it('send button starts disabled', async () => {

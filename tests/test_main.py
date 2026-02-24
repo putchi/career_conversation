@@ -13,6 +13,11 @@ def client_with_me():
     """TestClient with a mocked Me instance, lifespan triggered."""
     mock_me = MagicMock()
     mock_me.chat.return_value = "test reply"
+    mock_me.name = ""
+    mock_me.title = ""
+    mock_me.linkedin_url = ""
+    mock_me.website_url = ""
+    mock_me.suggestions = []
     with patch.object(main_module, "Me", return_value=mock_me):
         with TestClient(app) as client:
             yield client, mock_me
@@ -68,27 +73,32 @@ def test_config_js_sets_window_variable(client_with_me):
     assert "window.CAREER_CONFIG" in response.text
 
 
-def test_config_js_includes_env_values(client_with_me, monkeypatch):
-    client, _ = client_with_me
-    monkeypatch.setenv("VITE_OWNER_NAME", "Alex Rabinovich")
-    monkeypatch.setenv("VITE_OWNER_TITLE", "Software Engineer")
-    monkeypatch.setenv("VITE_LINKEDIN_URL", "https://linkedin.com/in/alex")
+def test_config_js_includes_me_values(client_with_me):
+    client, mock_me = client_with_me
+    mock_me.name = "Alex Rabinovich"
+    mock_me.title = "Software Engineer"
+    mock_me.linkedin_url = "https://linkedin.com/in/alex"
+    mock_me.website_url = "https://alexrabinovich.onrender.com/"
+    mock_me.suggestions = ["What's your background?"]
     response = client.get("/config.js")
-    content = response.text
-    # Parse the JSON embedded in the JS
-    json_str = content[len("window.CAREER_CONFIG = "):-1]
+    json_str = response.text[len("window.CAREER_CONFIG = "):-1]
     config = json.loads(json_str)
     assert config["ownerName"] == "Alex Rabinovich"
     assert config["ownerTitle"] == "Software Engineer"
     assert config["linkedinUrl"] == "https://linkedin.com/in/alex"
+    assert config["websiteUrl"] == "https://alexrabinovich.onrender.com/"
+    assert config["suggestions"] == ["What's your background?"]
 
 
-def test_config_js_defaults_to_empty_strings(client_with_me, monkeypatch):
+def test_config_js_defaults_to_empty_values(client_with_me):
     client, _ = client_with_me
-    monkeypatch.delenv("VITE_OWNER_NAME", raising=False)
-    monkeypatch.delenv("VITE_OWNER_TITLE", raising=False)
-    monkeypatch.delenv("VITE_LINKEDIN_URL", raising=False)
     response = client.get("/config.js")
     json_str = response.text[len("window.CAREER_CONFIG = "):-1]
     config = json.loads(json_str)
-    assert config == {"ownerName": "", "ownerTitle": "", "linkedinUrl": ""}
+    assert config == {
+        "ownerName": "",
+        "ownerTitle": "",
+        "linkedinUrl": "",
+        "websiteUrl": "",
+        "suggestions": [],
+    }

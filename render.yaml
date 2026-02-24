@@ -10,9 +10,7 @@ services:
         sync: false
       - key: PUSHOVER_USER
         sync: false
-      - key: VITE_LINKEDIN_URL
+      - key: SANITY_PROJECT_ID
         sync: false
-      - key: VITE_OWNER_NAME
-        sync: false
-      - key: VITE_OWNER_TITLE
-        sync: false
+      - key: SANITY_DATASET
+        value: production

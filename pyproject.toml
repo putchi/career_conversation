@@ -36,3 +36,8 @@ omit = ["tests/*"]
 
 [tool.coverage.report]
 show_missing = true
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]

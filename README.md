@@ -7,29 +7,26 @@ A conversational AI that represents Alex Rabinovich on his website, answering qu
 - [uv](https://docs.astral.sh/uv/) — Python package manager
 - Node.js 20+
 - OpenAI API key
+- Sanity account (free tier) — for content management
 - (Optional) Pushover account for mobile notifications
 
-## Local Setup — Required Files
-
-```
-me/                          # Personal documents
-├── profile.pdf              # CV / resume (committed, PII scrubbed)
-├── reference_letter.pdf     # Reference letter (optional)
-└── summary.txt              # Text summary of background (committed)
-```
-
-For local dev: me/profile.pdf and me/summary.txt are already in the repo.
-reference_letter.pdf is optional — the app handles its absence gracefully.
-For Render deployment: no Secret Files or ME_DIR needed. All required files are in the repo.
-
-## Local Development
+## Local Setup
 
 ### 1. Set environment variables
 
 ```bash
 cp .env.example .env
-# then fill in your OPENAI_API_KEY (and optionally PUSHOVER_TOKEN / PUSHOVER_USER)
 ```
+
+**Option A — Sanity CMS (recommended):** set `OPENAI_API_KEY` and `SANITY_PROJECT_ID`. Content is fetched from Sanity at startup.
+
+**Option B — local files:** set `OPENAI_API_KEY` and leave `SANITY_PROJECT_ID` unset. Place your files in `me/`:
+- `me/profile.pdf` and `me/summary.txt` — required
+- `me/reference_letter.pdf` — optional
+
+Also set `OWNER_NAME`, `OWNER_TITLE`, `LINKEDIN_URL`, `WEBSITE_URL`, and `SUGGESTIONS` (pipe-separated, e.g. `Question 1|Question 2`) in `.env` for the site config (header, footer, suggestion chips).
+
+Optionally set `PUSHOVER_TOKEN` / `PUSHOVER_USER` for mobile notifications (either option).
 
 ### 2. Start everything
 
@@ -66,7 +63,7 @@ tail -f logs/frontend.log   # follow frontend output
 
 Order matters — configure everything before clicking Deploy, or the first deploy will fail.
 
-1. Push the repo to GitHub (me/profile.pdf and me/summary.txt are included)
+1. Push the repo to GitHub
 
 2. Go to Render dashboard → New Web Service → Docker → connect the GitHub repo
    - Name: career-conversation (or your preference)
@@ -76,9 +73,9 @@ Order matters — configure everything before clicking Deploy, or the first depl
    - Instance Type: Free
    - Don't click Deploy yet
 
-3. Set the following in the Environment Variables section:
+3. Set secret environment variables (`render.yaml` already sets `SANITY_DATASET=production` and other static config):
    - OPENAI_API_KEY — required
-   - VITE_LINKEDIN_URL, VITE_OWNER_NAME, VITE_OWNER_TITLE — required (frontend branding)
+   - SANITY_PROJECT_ID — required (your project ID from sanity.io/manage)
    - PUSHOVER_TOKEN, PUSHOVER_USER — optional, for mobile notifications
 
 4. Set Health Check Path under Advanced:
@@ -90,13 +87,23 @@ Render automatically detects render.yaml and sets up the service.
 The free plan spins the container down after ~15 minutes of inactivity.
 Upgrade to a paid plan if you need always-on availability.
 
+## Updating Content
+
+All profile content and site config lives in Sanity Studio.
+
+1. Open your Sanity Studio (run `cd sanity && npm run dev` locally, or use the deployed Studio URL)
+2. Edit the `Profile` document — update text, upload new PDFs, change suggestion chips
+3. In the Render dashboard → your service → **Restart** (not Redeploy — no build needed)
+
+The service restarts in seconds and fetches the latest content from Sanity on startup.
+
 ## Updating the System Prompt
 
 Edit `backend/chat.py` → `Me.system_prompt()`. The six sections are:
 1. **intro** — role and context
 2. **scope** — what topics to answer
 3. **tool_instructions** — when to use tools
-4. **context** — the actual profile data (do not edit — loaded from `me/`)
+4. **context** — the actual profile data (loaded from Sanity or `me/` at startup)
 5. **behaviour** — tone and style
 6. **privacy** — what personal info to never share
 
