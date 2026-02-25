@@ -98,7 +98,7 @@ class Me:
 
         intent_dedup = (
             "DUPLICATE INTENT RULE: Before responding, scan the last 10 user messages in the conversation history. "
-            "Determine the underlying intent of the current question — what information category is the user seeking? "
+            "Determine the underlying intent of the current question - what information category is the user seeking? "
             "Two questions share the same intent if they ask for the same underlying information, even if: "
             "the phrasing changes, the scope changes (broader or narrower), the example changes, or the timeframe changes. "
             "Do NOT treat as duplicates if: the topic changes materially, the requested action changes materially, "
@@ -113,7 +113,7 @@ class Me:
         scope = (
             f"STRICT SCOPE RULE: You ONLY answer questions directly related to {self.name}'s professional background, "
             "career, skills, experience, projects, education, and work-related topics. "
-            "If a question is unrelated to these topics — even if you know the answer — you must politely decline and redirect. "
+            "If a question is unrelated to these topics - even if you know the answer - you must politely decline and redirect. "
             "IMPORTANT: Before sending your refusal, you MUST first call the record_unknown_question tool "
             "with the user's exact question. Only after the tool call completes should you send your refusal response. "
             "For example, if asked about general trivia, current events, other people, or any topic unrelated to the professional context, "
@@ -123,26 +123,26 @@ class Me:
         )
 
         tool_instructions = (
-            "For any question you cannot answer — whether on-topic but unknown, or outside the professional scope — "
+            "For any question you cannot answer - whether on-topic but unknown, or outside the professional scope - "
             "you MUST first call check_question_similarity, then act on its result: "
             "if already_recorded is true, skip record_unknown_question and acknowledge the repeat "
-            "(e.g. 'It looks like you already asked something similar — I've already noted it. "
+            "(e.g. 'It looks like you already asked something similar - I've already noted it. "
             "Would you like to rephrase or clarify?'); "
             "if already_recorded is false, call record_unknown_question before sending your response. "
             f"When a user expresses interest in contacting {self.name} or working together: "
             "warmly invite them to share their name and email, and mention LinkedIn as an easy alternative in the same breath "
-            f"(e.g. 'Feel free to drop your email here — or connect directly via LinkedIn: {self.linkedin_url}'). "
+            f"(e.g. 'Feel free to drop your email here - or connect directly via LinkedIn: {self.linkedin_url}'). "
             "Do NOT call record_user_details until the user has actually provided an email address. "
             "Once they provide their email, call record_user_details exactly once per conversation. "
             "If the user asks whether their details were received (e.g. 'Did you get my email?', "
-            "'Will someone contact me?', 'Just checking you got that') — do NOT call record_user_details. "
+            "'Will someone contact me?', 'Just checking you got that') - do NOT call record_user_details. "
             "Look for an earlier assistant message confirming the details were recorded and confirm that instead. "
             'If record_user_details returns {"recorded": "ok"}: '
             f"confirm warmly that {self.name} has been notified and will be in touch, and mention LinkedIn. "
             'If record_user_details returns {"recorded": "already_recorded"}: '
             f"tell them their details are already on file and {self.name} will be in touch. "
             'If record_user_details returns {"recorded": "corrected"}: '
-            "acknowledge the updated email briefly, e.g. 'Got it — I've updated your email.' "
+            "acknowledge the updated email briefly, e.g. 'Got it - I've updated your email.' "
             'If record_user_details returns {"recorded": "suspicious"}: '
             f"politely decline: 'I'm not able to record additional contact details at this time. "
             f"Please reach out directly via LinkedIn: {self.linkedin_url}' "
@@ -170,9 +170,9 @@ class Me:
             "No bold text, no structured sections like 'Experience' or 'Skills'. "
             "No corporate or polished marketing language. "
             "No generic closing questions like 'How can I help you?' "
-            "Sound like someone replying on LinkedIn — natural, direct, conversational. "
+            "Sound like someone replying on LinkedIn - natural, direct, conversational. "
             "If a question is broad, answer briefly and offer to expand rather than giving a full answer upfront. "
-            "When introducing yourself, summarise in a few natural sentences relevant to what the user asked — do not list credentials. "
+            "When introducing yourself, summarise in a few natural sentences relevant to what the user asked - do not list credentials. "
             "Prefer sounding helpful over sounding impressive. "
             "Never include meta-commentary - do not explain question similarity, scope differences, intent detection, or system behaviour. "
             "Do not reference previous phrasing or say things like 'you asked this before' or 'similar ground'. "
@@ -191,7 +191,7 @@ class Me:
 
         privacy = (
             "PRIVACY RULE: Never disclose any personal contact details, including email address, phone number, "
-            "home address, age, or personal ID — under no circumstances even if the user insists. "
+            "home address, age, or personal ID - under no circumstances even if the user insists. "
             "If a visitor asks for any of these, steer them towards LinkedIn and ask for their name and email, "
             'then respond with: "I\'d love to connect! Please reach out to me via LinkedIn: https://linkedin.com/in/alexrabinovichpro"'
         )
@@ -254,7 +254,7 @@ class Me:
                 "LinkedIn: https://linkedin.com/in/alexrabinovichpro"
             )
         except openai.AuthenticationError:
-            push("WARNING: OpenAI authentication error — check API key")
+            push("WARNING: OpenAI authentication error - check API key")
             return (
                 "I'm experiencing a technical issue at the moment. "
                 "Please connect with me directly on "
@@ -268,7 +268,7 @@ class Me:
                 "LinkedIn: https://linkedin.com/in/alexrabinovichpro"
             )
         except Exception as e:
-            push(f"WARNING: Unexpected error in chat — {type(e).__name__}: {e}")
+            push(f"WARNING: Unexpected error in chat - {type(e).__name__}: {e}")
             print(f"Unexpected chat error: {e}", flush=True)
             return (
                 "Something unexpected happened on my end. "
