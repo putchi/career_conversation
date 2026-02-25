@@ -28,3 +28,13 @@ def test_chat_request_accepts_history():
 def test_chat_response_stores_reply():
     r = ChatResponse(reply="hello back")
     assert r.reply == "hello back"
+
+
+def test_chat_request_accepts_session_id():
+    req = ChatRequest(message="hi", session_id="abc-123")
+    assert req.session_id == "abc-123"
+
+
+def test_chat_request_session_id_defaults_to_empty_string():
+    req = ChatRequest(message="hi")
+    assert req.session_id == ""

@@ -4,10 +4,12 @@ from io import BytesIO
 
 import openai
 import requests
+from agents import trace
+from agents.tracing import generation_span
 from openai import OpenAI
 from pypdf import PdfReader
 
-from backend.tools import push, record_user_details, record_unknown_question, tools
+from backend.tools import push, record_user_details, record_unknown_question, tools, set_openai_client, check_question_similarity, set_session_id
 
 ME_DIR = os.environ.get("ME_DIR", "me")
 _SANITY_API_VERSION = "2021-06-07"
@@ -16,6 +18,7 @@ _SANITY_API_VERSION = "2021-06-07"
 class Me:
     def __init__(self) -> None:
         self.openai = OpenAI()
+        set_openai_client(self.openai)
         project_id = os.environ.get("SANITY_PROJECT_ID")
         if project_id:
             self._load_from_sanity(project_id)
@@ -90,7 +93,21 @@ class Me:
             f"{self.name}'s career, background, skills and experience. "
             f"Your responsibility is to represent {self.name} for interactions on the website as faithfully as possible. "
             f"You are given a summary of {self.name}'s background and LinkedIn profile which you can use to answer questions. "
-            "Be professional and engaging, as if talking to a potential client or future employer who came across the website."
+            "Your audience may be potential clients, employers, or collaborators."
+        )
+
+        intent_dedup = (
+            "DUPLICATE INTENT RULE: Before responding, scan the last 10 user messages in the conversation history. "
+            "Determine the underlying intent of the current question — what information category is the user seeking? "
+            "Two questions share the same intent if they ask for the same underlying information, even if: "
+            "the phrasing changes, the scope changes (broader or narrower), the example changes, or the timeframe changes. "
+            "Do NOT treat as duplicates if: the topic changes materially, the requested action changes materially, "
+            "or the user adds a constraint that would change what a correct answer contains. "
+            "When a duplicate intent is detected: respond naturally without acknowledging the similarity. "
+            "Do not say 'this is the same question', 'you already asked', or reference previous phrasing in any way. "
+            "Instead, reply more casually and more concisely than you would for a first answer. "
+            "If it feels natural, use a brief bridging phrase (e.g. 'Yeah, mostly...' or 'Same deal, basically...') rather than repeating the full explanation. "
+            "Do not call any tools when a duplicate is detected."
         )
 
         scope = (
@@ -107,27 +124,34 @@ class Me:
 
         tool_instructions = (
             "For any question you cannot answer — whether on-topic but unknown, or outside the professional scope — "
-            "you MUST call record_unknown_question BEFORE sending your response. "
-            "If the user is engaging in discussion, try to steer them towards getting in touch via email; "
-            "ask for their name and email and record it using your record_user_details tool. "
-            "IMPORTANT: Only call record_user_details once per conversation. "
-            "After successfully recording contact details, respond warmly and naturally — like a confident personal assistant. "
-            "Confirm their details are noted and that Alex will be in touch. "
-            "Do NOT explain that you don't send emails yourself or add unnecessary disclaimers. "
-            "Keep it brief, friendly, and human. "
-            "Example: 'Thanks! I've passed your details along to Alex — he'll reach out soon.' "
-            "If the conversation history already contains an assistant message acknowledging that contact details were noted or recorded, "
-            "do NOT call record_user_details again — instead tell the user their details have already been passed along. "
-            'If the tool returns {"recorded": "already_recorded"}, respond with something like '
-            "'Looks like your details are already on file — I've passed them along.' "
-            "Each time record_unknown_question succeeds, it returns a `recorded_questions` list. "
-            "Before calling record_unknown_question again, check whether the new question is semantically equivalent "
-            "to any question already in that list — including rephrasing, contractions, or punctuation differences. "
-            "If a semantically equivalent question is already recorded, skip the tool call entirely and treat it as already_recorded. "
-            'If the record_unknown_question tool returns {"recorded": "already_recorded"}, '
-            "acknowledge the repeat to the user — say something like: "
-            "'It looks like you already asked something similar — I've already noted it. "
-            "Would you like to rephrase or clarify?'"
+            "you MUST first call check_question_similarity, then act on its result: "
+            "if already_recorded is true, skip record_unknown_question and acknowledge the repeat "
+            "(e.g. 'It looks like you already asked something similar — I've already noted it. "
+            "Would you like to rephrase or clarify?'); "
+            "if already_recorded is false, call record_unknown_question before sending your response. "
+            f"When a user expresses interest in contacting {self.name} or working together: "
+            "warmly invite them to share their name and email, and mention LinkedIn as an easy alternative in the same breath "
+            f"(e.g. 'Feel free to drop your email here — or connect directly via LinkedIn: {self.linkedin_url}'). "
+            "Do NOT call record_user_details until the user has actually provided an email address. "
+            "Once they provide their email, call record_user_details exactly once per conversation. "
+            "If the user asks whether their details were received (e.g. 'Did you get my email?', "
+            "'Will someone contact me?', 'Just checking you got that') — do NOT call record_user_details. "
+            "Look for an earlier assistant message confirming the details were recorded and confirm that instead. "
+            'If record_user_details returns {"recorded": "ok"}: '
+            f"confirm warmly that {self.name} has been notified and will be in touch, and mention LinkedIn. "
+            'If record_user_details returns {"recorded": "already_recorded"}: '
+            f"tell them their details are already on file and {self.name} will be in touch. "
+            'If record_user_details returns {"recorded": "corrected"}: '
+            "acknowledge the updated email briefly, e.g. 'Got it — I've updated your email.' "
+            'If record_user_details returns {"recorded": "suspicious"}: '
+            f"politely decline: 'I'm not able to record additional contact details at this time. "
+            f"Please reach out directly via LinkedIn: {self.linkedin_url}' "
+            'If record_user_details returns {"recorded": "already_overridden"}: '
+            f"explain the session limit: 'It looks like the override was already used in this session. "
+            f"Please reach out directly via LinkedIn: {self.linkedin_url}' "
+            "Pass override=True ONLY when the user explicitly requests to replace a previously recorded email "
+            "(e.g. 'please ignore my previous email and use this new one'). "
+            "Never use override=True for first-time recordings or routine confirmations."
         )
 
         ref_section = f"\n\n## Reference Letter:\n{self.ref_letter}" if self.ref_letter else ""
@@ -138,9 +162,31 @@ class Me:
         )
 
         behaviour = (
-            f"With this context, please chat with the user. Always stay in character as {self.name}, "
-            "engaging professionally and warmly with visitors — whether they are potential clients, employers, or collaborators. "
-            "Do not use em-dashes in your replies."
+            f"With this context, please chat with the user. Always stay in character as {self.name}. "
+            "You are a real person replying in a direct message - not a resume, a marketing page, or an AI assistant. "
+            "Default to under 120 words unless the user explicitly asks for detail. "
+            "Keep responses to 2 to 5 sentences by default. "
+            "No bullet lists unless the user asks for a breakdown. "
+            "No bold text, no structured sections like 'Experience' or 'Skills'. "
+            "No corporate or polished marketing language. "
+            "No generic closing questions like 'How can I help you?' "
+            "Sound like someone replying on LinkedIn — natural, direct, conversational. "
+            "If a question is broad, answer briefly and offer to expand rather than giving a full answer upfront. "
+            "When introducing yourself, summarise in a few natural sentences relevant to what the user asked — do not list credentials. "
+            "Prefer sounding helpful over sounding impressive. "
+            "Never include meta-commentary - do not explain question similarity, scope differences, intent detection, or system behaviour. "
+            "Do not reference previous phrasing or say things like 'you asked this before' or 'similar ground'. "
+            "It is okay to be slightly informal. Use natural transitions like someone typing in chat."
+        )
+
+        output_rules = (
+            "GLOBAL OUTPUT RULE: "
+            'The Unicode character "\u2014" (em-dash) is strictly forbidden. '
+            "Do not generate this character under any circumstance. "
+            "Before returning a response, perform a self-check: "
+            'if "\u2014" appears anywhere in your output, rewrite the entire response without it. '
+            "Replace it with a period, comma, or regular hyphen. "
+            "This is a hard constraint and overrides all stylistic or tone instructions."
         )
 
         privacy = (
@@ -150,7 +196,7 @@ class Me:
             'then respond with: "I\'d love to connect! Please reach out to me via LinkedIn: https://linkedin.com/in/alexrabinovichpro"'
         )
 
-        return "\n\n".join([intro, scope, tool_instructions, context, behaviour, privacy])
+        return "\n\n".join([intro, intent_dedup, scope, tool_instructions, context, behaviour, output_rules, privacy])
 
     def handle_tool_call(self, tool_calls) -> list[dict]:
         results = []
@@ -158,7 +204,11 @@ class Me:
             tool_name = tool_call.function.name
             arguments = json.loads(tool_call.function.arguments)
             print(f"Tool called: {tool_name}", flush=True)
-            tool_fn = {"record_user_details": record_user_details, "record_unknown_question": record_unknown_question}.get(tool_name)
+            tool_fn = {
+                "record_user_details": record_user_details,
+                "record_unknown_question": record_unknown_question,
+                "check_question_similarity": check_question_similarity,
+            }.get(tool_name)
             result = tool_fn(**arguments) if tool_fn else {}
             results.append({
                 "role": "tool",
@@ -167,23 +217,33 @@ class Me:
             })
         return results
 
-    def chat(self, message: str, history: list[dict]) -> str:
+    def chat(self, message: str, history: list[dict], session_id: str = "") -> str:
+        set_session_id(session_id)
         messages = [{"role": "system", "content": self.system_prompt()}] + history + [{"role": "user", "content": message}]
         done = False
         try:
-            while not done:
-                response = self.openai.chat.completions.create(
-                    model=self.model,
-                    messages=messages,
-                    tools=tools,
-                )
-                if response.choices[0].finish_reason == "tool_calls":
-                    msg = response.choices[0].message
-                    results = self.handle_tool_call(msg.tool_calls)
-                    messages.append(msg)
-                    messages.extend(results)
-                else:
-                    done = True
+            with trace("Career Chat", group_id=session_id or None):
+                while not done:
+                    with generation_span(input=messages, model=self.model) as gen_span:
+                        response = self.openai.chat.completions.create(
+                            model=self.model,
+                            messages=messages,
+                            tools=tools,
+                        )
+                        msg = response.choices[0].message
+                        if msg.content:
+                            gen_span.span_data.output = [{"role": "assistant", "content": msg.content}]
+                        if response.usage:
+                            gen_span.span_data.usage = {
+                                "input_tokens": response.usage.prompt_tokens,
+                                "output_tokens": response.usage.completion_tokens,
+                            }
+                    if response.choices[0].finish_reason == "tool_calls":
+                        results = self.handle_tool_call(msg.tool_calls)
+                        messages.append(msg)
+                        messages.extend(results)
+                    else:
+                        done = True
             return response.choices[0].message.content
 
         except openai.RateLimitError:

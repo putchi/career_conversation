@@ -44,7 +44,7 @@ async def health():
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     history = [{"role": m.role, "content": m.content} for m in request.history]
-    reply = me.chat(request.message, history)
+    reply = me.chat(request.message, history, request.session_id)
     return ChatResponse(reply=reply)
 
 

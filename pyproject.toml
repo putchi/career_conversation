@@ -7,6 +7,7 @@ dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.30.0",
     "openai>=1.50.0",
+    "openai-agents>=0.0.7",
     "pypdf>=4.0.0",
     "python-dotenv>=1.0.0",
     "requests>=2.31.0",

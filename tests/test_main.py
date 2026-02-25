@@ -53,7 +53,7 @@ def test_chat_endpoint_converts_history(client_with_me):
             {"role": "assistant", "content": "second"},
         ],
     })
-    _, history = mock_me.chat.call_args[0]
+    _, history, *_ = mock_me.chat.call_args[0]
     assert history == [
         {"role": "user", "content": "first"},
         {"role": "assistant", "content": "second"},
